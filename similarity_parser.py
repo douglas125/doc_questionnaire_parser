@@ -127,7 +127,9 @@ class SimilarityParser:
                         str(txt).replace('<pre>', '').replace('</pre>', '')
                     )
             else:
-                lines.append(str(tbl))
+                lines.append(
+                    str(tbl).replace('<pre>', '').replace('</pre>', '')
+                )
         return lines
 
     def _split_questions(self, text_lines):
