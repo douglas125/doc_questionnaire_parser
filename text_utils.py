@@ -1,5 +1,6 @@
 import copy
 import zipfile
+import logging
 
 import jellyfish
 import numpy as np
@@ -100,3 +101,14 @@ def min_first_words_match_list(
     else:
         # some big number
         return 99999, 0
+
+
+def remove_first_occurrence(text, txt_find, caller_name=''):
+    """ Removes the first occurrence in a text
+        Throws a logging warning if it is not found
+    """
+    ans = text.replace(txt_find, '', 1)
+    if ans == text:
+        logging.warning(f'{caller_name}: Could not '
+                        f'replace {txt_find}')
+    return ans
