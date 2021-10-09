@@ -321,12 +321,16 @@ class SimilarityParser:
         """
         choice_candidate_lines = []
         choice_chars = []
+        cur_letter_idx = 0
         for idx, (line, line_no_html) in enumerate(zip(
                 question_lines, lines_no_html
         )):
             line_text = line_no_html.strip()
             for delimiter in self.config['multiple_choice_delimiters']:
-                if line_text[1:1 + len(delimiter)] == delimiter:
+                # enforce letter sequence: a, b, c etc.
+                if line_text[1:1 + len(delimiter)] == delimiter and\
+                        line_text[0].lower() == LOWERCASE_CHARS[cur_letter_idx]:
+
                     # logging.debug(f'{line_text}, {delimiter}')
                     choice_candidate_lines.append(idx)
                     choice_chars.append(line_text[0].lower())
@@ -336,10 +340,10 @@ class SimilarityParser:
                         line, search_string, '_try_parse_multiple_choice'
                     )
                     question_lines[idx] = cur_val
+                    cur_letter_idx += 1
 
         if len(choice_chars) >= 3 and\
-                len(LOWERCASE_CHARS) >= len(choice_chars) and\
-                LOWERCASE_CHARS[:len(choice_chars)] == ''.join(choice_chars):
+                len(LOWERCASE_CHARS) >= len(choice_chars):
             # good chance we're multiple choice here
             q_text = '<br>'.join(question_lines[0:choice_candidate_lines[0]])
             q_options = []
@@ -354,3 +358,5 @@ class SimilarityParser:
             }
 
             return ans
+        # else:
+        #     logging.debug([choice_chars, lines_no_html])
