@@ -302,15 +302,17 @@ class SimilarityParser:
             elif t == 'correct_answer':
                 # pick up the letter and make it become a number
                 question_ans_soup = BeautifulSoup(val, features="lxml")
-                candidate = question_ans_soup.text.strip().lower()[-1]
-                candidate = LOWERCASE_CHARS.index(candidate)
-                if candidate >= 0:
-                    ans[self.ans['correct_answer']] = candidate
-                else:
-                    logging.warning(
-                        '_extract_info_from_tags: Cannot '
-                        f'understand correct answer from {tags[t]}'
-                    )
+                candidate = question_ans_soup.text.strip().lower()
+                if len(candidate) > 0:
+                    candidate = question_ans_soup.text.strip().lower()[-1]
+                    candidate = LOWERCASE_CHARS.index(candidate)
+                    if candidate >= 0:
+                        ans[self.ans['correct_answer']] = candidate
+                    else:
+                        logging.warning(
+                            '_extract_info_from_tags: Cannot '
+                            f'understand correct answer from {tags[t]}'
+                        )
 
         return ans
 

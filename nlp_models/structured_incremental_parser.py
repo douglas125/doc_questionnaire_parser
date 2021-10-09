@@ -1,4 +1,6 @@
 import re
+import logging
+
 import numpy as np
 
 
@@ -25,7 +27,7 @@ class IncrementalParser:
 
     def __init__(
         self, look_ahead=2, look_behind=4,
-        ignore_spaces=True, max_num_questions=30,
+        ignore_spaces=True, max_num_questions=800,
         same_char_list=[')', '-', '.', ']', '}']
     ):
         """ Initializes incremental parser
@@ -98,6 +100,7 @@ class IncrementalParser:
 
         ahead_cands = [x for x in ahead_cands if x[1] <= self.max_num_questions]
         behind_cands = [x for x in behind_cands if x[1] <= self.max_num_questions]
+        # logging.debug(f'Behind string: {behind_cands}\nAhead: {ahead_cands}')
 
         # find matches
         behind_str = behind_cands[0][0][::-1]
@@ -138,4 +141,5 @@ class IncrementalParser:
         cand_score = [cand_score[x] for x in sorted_idxs]
         cand_text = [cand_text[x] for x in sorted_idxs]
         ans = list(zip(cand_text, cand_score))
+        # logging.debug(ans)
         return ans
