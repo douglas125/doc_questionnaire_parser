@@ -122,8 +122,7 @@ class SimilarityParser:
         questions = []
         if len(question_idxs) > 0:
             # don't forget last question
-            if question_idxs[-1] != len(lines) - 1:
-                question_idxs.append(len(lines) - 1)
+            question_idxs.append(len(lines))
 
             for (n1, n2) in zip(question_idxs[0:-1], question_idxs[1:]):
                 q = self._parse_question(
