@@ -84,7 +84,9 @@ class IncrementalParser:
                     'value': int(first_number_info.group()),
                     # reverse the look_behind
                     'look_behind': cur_txt[:cur_span[0]][::-1],
-                    'look_ahead': cur_txt[cur_span[1]:cur_span[1] + self.look_ahead]
+                    'look_ahead': cur_txt[
+                        cur_span[1]:cur_span[1] + self.look_ahead
+                    ]
                 })
 
         look_ahead_texts = [s['look_ahead'] for s in number_infos

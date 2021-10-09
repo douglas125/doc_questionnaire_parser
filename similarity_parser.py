@@ -188,6 +188,15 @@ class SimilarityParser:
                     )
                     text_lines[idx] = cur_val
 
+                    # update the no_html version as well
+                    cur_val = text_utils.remove_first_occurrence(
+                        cur_line_no_html, words[0], '_split_questions'
+                    )
+                    cur_val = text_utils.remove_first_occurrence(
+                        cur_val, words[1], '_split_questions'
+                    )
+                    text_lines_no_html[idx] = cur_val
+
         return question_idxs
 
     # parse question tags
@@ -225,7 +234,7 @@ class SimilarityParser:
         q_tags = self._parse_question_tags(question_lines, lines_no_html)
 
         # remove tag lines
-        non_tag_lines_id = set(range(len(question_lines))) - set(q_tags['lines'])
+        non_tag_lines_id = set(range(len(question_lines))) - set(q_tags['lines'])  # noqa
         non_tag_lines_id = list(non_tag_lines_id)
         non_tag_lines_id.sort()
         non_tag_lines = [question_lines[x] for x in non_tag_lines_id]
@@ -236,18 +245,21 @@ class SimilarityParser:
         if len(question_lines[0].split()) > 0:
             first_line_text = lines_no_html[0].strip()
 
-            source_candidate = first_line_text.split()[0]
-            if source_candidate[0] in self.config['source_begin_delimiters']\
-                    and len(source_candidate) > 2 and\
-                    source_candidate[-1] in self.config['source_end_delimiters']:  # noqa
-                q_tags['lines'].append(0)
-                q_tags['types'].append('source')
-                q_tags['values'].append(source_candidate[1:-1])
+            source_candidate = re.search('^\(.+\)', first_line_text)
+            if source_candidate is not None:
+                source_candidate = source_candidate.group()
 
-                cur_val = text_utils.remove_first_occurrence(
-                    question_lines[0], source_candidate, '_parse_question'
-                )
-                non_tag_lines[0] = cur_val
+                if source_candidate[0] in self.config['source_begin_delimiters']\
+                        and len(source_candidate) > 2 and\
+                        source_candidate[-1] in self.config['source_end_delimiters']:  # noqa
+                    q_tags['lines'].append(0)
+                    q_tags['types'].append('source')
+                    q_tags['values'].append(source_candidate[1:-1])
+
+                    cur_val = text_utils.remove_first_occurrence(
+                        question_lines[0], source_candidate, '_parse_question'
+                    )
+                    non_tag_lines[0] = cur_val
 
         # try to parse multiple choice
         mc_parsing = self._try_parse_multiple_choice(non_tag_lines, non_tag_lines_no_html, q_tags)
