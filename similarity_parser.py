@@ -6,11 +6,16 @@ from bs4 import BeautifulSoup
 from docx2python import docx2python
 
 import text_utils
+from nlp_models.structured_incremental_parser import IncrementalParser
 
 
 LOWERCASE_CHARS = string.ascii_lowercase
 
 DEFAULTCONFIG = {
+    # minimum number of questions
+    # trigger AI to split more if this is not reached
+    'min_expected_questions': 2,
+
     # edit this to change the output tags
     'ans_strings': {
         'stem': 'stem',
@@ -94,8 +99,26 @@ class SimilarityParser:
         lines = self._html_to_lines(html_txt)
         return self._parse_questions(lines)
 
+    def _extract_lines_without_html(self, lines):
+        """ Remove html tags from lines
+        """
+        text_lines_no_html = []
+        # look for question splitters
+        for cur_line in lines:
+            soup = BeautifulSoup(cur_line, features="lxml")
+            text_lines_no_html.append(soup.text)
+        return text_lines_no_html
+
     def _parse_questions(self, lines):
-        question_idxs = self._split_questions(lines)
+        text_lines_no_html = self._extract_lines_without_html(lines)
+        question_idxs = self._split_questions(lines, text_lines_no_html)
+
+        if len(question_idxs) < self.config['min_expected_questions']:
+            logging.debug('Extending attempts to split document questions')
+            ip = IncrementalParser()
+            question_idxs = ip.parse_text_lines_inc_numbers(
+                lines, text_lines_no_html)
+
         questions = []
         if len(question_idxs) > 0:
             # don't forget last question
@@ -103,7 +126,9 @@ class SimilarityParser:
                 question_idxs.append(len(lines) - 1)
 
             for (n1, n2) in zip(question_idxs[0:-1], question_idxs[1:]):
-                q = self._parse_question(lines[n1:n2])
+                q = self._parse_question(
+                    lines[n1:n2], text_lines_no_html[n1:n2]
+                )
                 questions.append(q)
 
         return questions
@@ -132,16 +157,17 @@ class SimilarityParser:
                 )
         return lines
 
-    def _split_questions(self, text_lines):
+    def _split_questions(self, text_lines, text_lines_no_html):
         """ Receives a list of lines and identifies
             where to split into different questions
         """
         question_idxs = []
 
         # look for question splitters
-        for idx, cur_line in enumerate(text_lines):
-            soup = BeautifulSoup(cur_line, features="lxml")
-            words = soup.text.split()
+        for idx, (cur_line, cur_line_no_html) in enumerate(
+                zip(text_lines, text_lines_no_html)
+        ):
+            words = cur_line_no_html.split()
             if len(words) > 1:
                 question_distance = text_utils.min_word_distance(
                     words[0], self.config['exercise_strings']
@@ -166,13 +192,14 @@ class SimilarityParser:
         return question_idxs
 
     # parse question tags
-    def _parse_question_tags(self, question_lines):
+    def _parse_question_tags(self, question_lines, lines_no_html):
         """ Attempts to identify tags in a question
         """
         tags = {'lines': [], 'types': [], 'values': []}
-        for idx, cur_line in enumerate(question_lines):
-            soup = BeautifulSoup(cur_line, features="lxml")
-            words = soup.text.strip().split()
+        for idx, (cur_line, line_no_html) in enumerate(zip(
+                question_lines, lines_no_html
+        )):
+            words = line_no_html.strip().split()
             for t in self.config['possible_tags']:
                 tag_dist, n_words = text_utils.min_first_words_match_list(
                     words, self.config['possible_tags'][t],
@@ -192,23 +219,23 @@ class SimilarityParser:
         return tags
 
     # question parsing section
-    def _parse_question(self, question_lines):
+    def _parse_question(self, question_lines, lines_no_html):
         """ Given a set of question lines,
             tries to parse text, options, answers and optionals
         """
-        q_tags = self._parse_question_tags(question_lines)
+        q_tags = self._parse_question_tags(question_lines, lines_no_html)
 
         # remove tag lines
-        non_tag_lines = set(range(len(question_lines))) - set(q_tags['lines'])
-        non_tag_lines = list(non_tag_lines)
-        non_tag_lines.sort()
-        non_tag_lines = [question_lines[x] for x in non_tag_lines]
+        non_tag_lines_id = set(range(len(question_lines))) - set(q_tags['lines'])
+        non_tag_lines_id = list(non_tag_lines_id)
+        non_tag_lines_id.sort()
+        non_tag_lines = [question_lines[x] for x in non_tag_lines_id]
+        non_tag_lines_no_html = [lines_no_html[x] for x in non_tag_lines_id]
 
         # pick up source after question
         # question delimiter is already gone at this point
         if len(question_lines[0].split()) > 0:
-            soup = BeautifulSoup(question_lines[0], features="lxml")
-            first_line_text = soup.text.strip()
+            first_line_text = lines_no_html[0].strip()
 
             source_candidate = first_line_text.split()[0]
             if source_candidate[0] in self.config['source_begin_delimiters']\
@@ -224,7 +251,7 @@ class SimilarityParser:
                 non_tag_lines[0] = cur_val
 
         # try to parse multiple choice
-        mc_parsing = self._try_parse_multiple_choice(non_tag_lines, q_tags)
+        mc_parsing = self._try_parse_multiple_choice(non_tag_lines, non_tag_lines_no_html, q_tags)
 
         ans = {
             'all_parsed_tags': {
@@ -245,7 +272,6 @@ class SimilarityParser:
 
         extra_info = self._extract_info_from_tags(q_tags)
         ans.update(extra_info)
-
         return ans
 
     def _extract_info_from_tags(self, tags):
@@ -270,21 +296,24 @@ class SimilarityParser:
                 if candidate >= 0:
                     ans[self.ans['correct_answer']] = candidate
                 else:
-                    logging.warning('_extract_info_from_tags: Cannot '
-                                    f'understand correct answer from {tags[t]}')
+                    logging.warning(
+                        '_extract_info_from_tags: Cannot '
+                        f'understand correct answer from {tags[t]}'
+                    )
 
         return ans
 
     # multiple choice parsing
     # this is so common that it deserves a section of its own
-    def _try_parse_multiple_choice(self, question_lines, tags):
+    def _try_parse_multiple_choice(self, question_lines, lines_no_html, tags):
         """ Try to parse a multiple choice question
         """
         choice_candidate_lines = []
         choice_chars = []
-        for idx, line in enumerate(question_lines):
-            soup = BeautifulSoup(line, features="lxml")
-            line_text = soup.text.strip()
+        for idx, (line, line_no_html) in enumerate(zip(
+                question_lines, lines_no_html
+        )):
+            line_text = line_no_html.strip()
             for delimiter in self.config['multiple_choice_delimiters']:
                 if line_text[1:1 + len(delimiter)] == delimiter:
                     # logging.debug(f'{line_text}, {delimiter}')
