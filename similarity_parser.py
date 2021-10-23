@@ -83,14 +83,17 @@ class SimilarityParser:
             self.config = DEFAULTCONFIG
         self.ans = self.config['ans_strings']
 
-    def parse_docx(self, file_name):
+    def parse_docx(self, file_name, image_folder=None):
         """ Attempts to parse a DOCX file into questions
 
         Arguments:
 
         file_name: DOCX file to process
         """
-        contents = docx2python(file_name, html=True)
+        if image_folder is not None:
+            contents = docx2python(file_name, image_folder, html=True)
+        else:
+            contents = docx2python(file_name, html=True)
 
         pattern = "\(\d+, \d+, \d+, \d+\) "  # noqa
         html_txt = contents.html_map
