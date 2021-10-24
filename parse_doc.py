@@ -104,20 +104,26 @@ def main():
     assert os.path.isdir(args.input),\
         f'Input folder not found: {args.input}'
     sp = SimilarityParser()
-    docx_files = [x for x in os.listdir(args.input)
-                  if x.lower().endswith('.docx')]
+    doc_files = [x for x in os.listdir(args.input)
+                  if x.lower().endswith('.docx') or x.lower().endswith('.pdf')]
     os.makedirs(args.output, exist_ok=True)
 
-    for docx in docx_files:
+    for document in doc_files:
         cur_out_folder = os.path.join(
-            args.output, docx.split('.')[0]
+            args.output, document.split('.')[0]
         )
         cur_out_imgs = os.path.join(cur_out_folder, 'images')
         os.makedirs(cur_out_imgs, exist_ok=True)
-        cur_parse = sp.parse_docx(
-            os.path.join(args.input, docx),
-            image_folder=cur_out_imgs
-        )
+        if document.lower().endswith('.docx'):
+            cur_parse = sp.parse_docx(
+                os.path.join(args.input, document),
+                image_folder=cur_out_imgs
+            )
+        elif document.lower().endswith('.pdf'):
+            cur_parse = sp.parse_pdf(
+                os.path.join(args.input, document),
+                image_folder=cur_out_imgs
+            )
 
         for idx, question in enumerate(cur_parse):
             html_name = _gen_html_name(idx + 1)

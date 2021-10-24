@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from docx2python import docx2python
 
 import text_utils
+import pdf_parsing.pdf_extractor as pdf_e
 from nlp_models.structured_incremental_parser import IncrementalParser
 
 
@@ -82,6 +83,16 @@ class SimilarityParser:
         else:
             self.config = DEFAULTCONFIG
         self.ans = self.config['ans_strings']
+
+    def parse_pdf(self, file_name, image_folder=None):
+        """ Attempts to parse a PDF file into questions
+
+        Arguments:
+
+        file_name: PDF file to process
+        """
+        lines = pdf_e.read_pdf_lines(file_name, image_folder)
+        return self._parse_questions(lines)
 
     def parse_docx(self, file_name, image_folder=None):
         """ Attempts to parse a DOCX file into questions
@@ -177,6 +188,12 @@ class SimilarityParser:
 
                 valid_question_delimiter = words[1][-1] in self.config['exercise_delimiter_tokens']  # noqa
                 is_valid_number = words[1][:-1].isnumeric()
+
+                # special case: exercise 5, or exercise 6.
+                # are the only contents of a line
+                if len(words) == 2 and words[1].isnumeric():
+                    is_valid_number = True
+                    valid_question_delimiter = True
 
                 if question_distance <= self.config['exercise_dist_tol'] and\
                         valid_question_delimiter and is_valid_number:
@@ -334,7 +351,8 @@ class SimilarityParser:
             for delimiter in self.config['multiple_choice_delimiters']:
                 # enforce letter sequence: a, b, c etc.
                 if line_text[1:1 + len(delimiter)] == delimiter and\
-                        line_text[0].lower() == LOWERCASE_CHARS[cur_letter_idx]:
+                        line_text[0].lower() ==\
+                        LOWERCASE_CHARS[cur_letter_idx]:
 
                     # logging.debug(f'{line_text}, {delimiter}')
                     choice_candidate_lines.append(idx)
@@ -347,6 +365,7 @@ class SimilarityParser:
                     question_lines[idx] = cur_val
                     cur_letter_idx += 1
 
+        # logging.debug(f'Choice chars: {choice_chars}')
         if len(choice_chars) >= 3 and\
                 len(LOWERCASE_CHARS) >= len(choice_chars):
             # good chance we're multiple choice here
