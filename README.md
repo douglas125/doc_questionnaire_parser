@@ -1,5 +1,5 @@
-# DOCX Questionnaire Parser
-Convert DOCX files to structured questionnaires
+# Questionnaire Parser
+Convert DOCX and PDF files to structured questionnaires
 
 ## Installation
 
@@ -9,7 +9,7 @@ pip requirements using `pip-requirements.txt`
 ## Usage:
 
 - Import the parser of your choice
-- Extract questions from a DOCX by providing its path
+- Extract questions from a file by providing its path
 
 Example:
 
@@ -25,7 +25,7 @@ detected in the DOCX file
 
 ## Visualization
 
-- Create a folder with .DOCX files to be parsed (e.g. `data`)
+- Create a folder with files to be parsed (e.g. `data`) - right now, the parser will look for .DOCX and .PDF
 - Select a folder to place outputs
 - Run `parse_doc.py` as follows:
 
