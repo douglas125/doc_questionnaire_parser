@@ -198,24 +198,29 @@ class SimilarityParser:
                 if question_distance <= self.config['exercise_dist_tol'] and\
                         valid_question_delimiter and is_valid_number:
                     question_idxs.append(idx)
-                    # get rid of the delimiter text
-                    # this is robust to multiple spaces
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_line, words[0], '_split_questions'
-                    )
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_val, words[1], '_split_questions'
-                    )
-                    text_lines[idx] = cur_val
+                    if len(words) == 2:
+                        # line contains only question id - remove
+                        text_lines[idx] = ''
+                        text_lines_no_html[idx] = ''
+                    else:
+                        # get rid of the delimiter text
+                        # this is robust to multiple spaces
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_line, words[0], '_split_questions'
+                        )
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_val, words[1], '_split_questions'
+                        )
+                        text_lines[idx] = cur_val
 
-                    # update the no_html version as well
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_line_no_html, words[0], '_split_questions'
-                    )
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_val, words[1], '_split_questions'
-                    )
-                    text_lines_no_html[idx] = cur_val
+                        # update the no_html version as well
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_line_no_html, words[0], '_split_questions'
+                        )
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_val, words[1], '_split_questions'
+                        )
+                        text_lines_no_html[idx] = cur_val
 
         return question_idxs
 

@@ -24,7 +24,8 @@ def parse_arguments():
 
 
 def _adjust_img_url(x):
-    return re.sub('----media/(.+?[^-])----', '<img src="images/\\1">', x)
+    ans = re.sub('----media/(.+?[^-])----', '<img src="images/\\1">', x)
+    return ans
 
 
 def replace_image_url(cur_dict):
@@ -131,7 +132,8 @@ def main():
             next_html = _gen_html_name(idx + 2)\
                 if idx + 1 < len(cur_parse) else None
 
-            with open(os.path.join(cur_out_folder, html_name), 'w') as f:
+            with open(os.path.join(cur_out_folder, html_name),
+                      'w', encoding='utf-8') as f:
                 cur_txt = question2html(
                     question, prev_html=prev_html, next_html=next_html
                 )

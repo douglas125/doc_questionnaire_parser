@@ -58,7 +58,6 @@ def read_pdf_lines(file, image_folder=None):
             all_lines += lines
             if image is not None:
                 img_name = f'{str(image_idx).zfill(8)}'
-                image_idx += 1
                 all_lines.append(f'----media/{img_name}.{b["ext"]}----')
                 if image_folder is not None:
                     _save_png_from_b64(
@@ -66,5 +65,6 @@ def read_pdf_lines(file, image_folder=None):
                         b['ext'],
                         image
                     )
+                image_idx += 1
 
     return all_lines
