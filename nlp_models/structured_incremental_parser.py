@@ -95,7 +95,7 @@ class IncrementalParser:
                             if s is not None]
         ahead_cands = self._find_common_string_pattern(look_ahead_texts, self.look_ahead)
         look_behind_texts = [s['look_behind'] for s in number_infos
-                            if s is not None]
+                             if s is not None]
         behind_cands = self._find_common_string_pattern(look_behind_texts, self.look_behind)
 
         ahead_cands = [x for x in ahead_cands if x[1] <= self.max_num_questions]
@@ -137,7 +137,7 @@ class IncrementalParser:
                 candidates[''] = candidates.get('', 0) + 1
         cand_text, cand_score = zip(*candidates.items())
         sorted_idxs = np.argsort(-np.array(cand_score))
-        
+
         cand_score = [cand_score[x] for x in sorted_idxs]
         cand_text = [cand_text[x] for x in sorted_idxs]
         ans = list(zip(cand_text, cand_score))
