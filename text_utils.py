@@ -64,7 +64,8 @@ def min_first_words_match_list(
     """
     assert type(words) == list,\
         'Words in the sentence should be already splitted'
-    if last_char_match_list is not None:
+    if remove_last_char:
+        assert last_char_match_list is not None, 'Need delimiters'
         assert type(last_char_match_list) == list,\
             'Possible delimiters must be a list'
 
