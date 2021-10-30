@@ -3,16 +3,22 @@ import re
 import sys
 import argparse
 
+from tqdm import tqdm
+
 from similarity_parser import SimilarityParser
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Parses PDF and DOCX documents into JSON format '
+                    'renderable with HTML. In the case of PDF:\n'
+                    '<file>.pdf - questions; <file>_gab.pdf - answers'
+    )
     parser.add_argument(
         '-i',
         '--input',
         default='data',
-        help='Input folder containing DOCX files to parse'
+        help='Input folder containing DOCX and PDF files to parse'
     )
     parser.add_argument(
         '-o',
@@ -80,8 +86,13 @@ def question2html(orig_question, prev_html=None, next_html=None):
     ans.append(stem)
     if question['type'] == 'choice':
         options = question.pop('choices')
+        correct_answer = question.get('correct_answer', -1)
         for idx, opt in enumerate(options):
-            ans.append(f'<br><br>Option {idx + 1}:<br>{opt["text"]}')
+            option_text = f'<br><br>Option {idx + 1}:<br>{opt["text"]}'
+            if correct_answer == idx:
+                option_text = '<p style="color:green; font-weight: bold">' +\
+                              f'{option_text}</p>'
+            ans.append(option_text)
 
     ans.append('<hr>Remaining info:<hr><br>')
     all_parsed_tags = question.pop('all_parsed_tags')
@@ -106,10 +117,15 @@ def main():
         f'Input folder not found: {args.input}'
     sp = SimilarityParser()
     doc_files = [x for x in os.listdir(args.input)
-                  if x.lower().endswith('.docx') or x.lower().endswith('.pdf')]
+                 if x.lower().endswith('.docx') or x.lower().endswith('.pdf')
+                 and not x.lower().endswith('_gab.pdf')]
     os.makedirs(args.output, exist_ok=True)
 
-    for document in doc_files:
+    pbar = tqdm(doc_files)
+    for document in pbar:
+        # show user what document is being processed
+        pbar.set_description(f'File: {document}')
+
         cur_out_folder = os.path.join(
             args.output, document.split('.')[0]
         )
@@ -121,9 +137,18 @@ def main():
                 image_folder=cur_out_imgs
             )
         elif document.lower().endswith('.pdf'):
+            ans_file = None
+            ans_candidate = os.path.join(
+                args.input, document
+            ).replace('.pdf', '_gab.pdf')
+
+            if os.path.isfile(ans_candidate):
+                ans_file = ans_candidate
+
             cur_parse = sp.parse_pdf(
                 os.path.join(args.input, document),
-                image_folder=cur_out_imgs
+                image_folder=cur_out_imgs,
+                answers=ans_file
             )
 
         for idx, question in enumerate(cur_parse):
