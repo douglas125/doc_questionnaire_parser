@@ -4,7 +4,7 @@ on: [pull_request]
 
 jobs:
   build:
-
+    name: test-python-code
     runs-on: ubuntu-latest
     strategy:
       matrix:
