@@ -1,4 +1,5 @@
 tqdm
+pillow
 jellyfish
 ipywidgets
 scikit-learn
