@@ -111,8 +111,7 @@ def _gen_html_name(z):
     return str(z).zfill(8) + '.html'
 
 
-def main():
-    args = parse_arguments()
+def main(args):
     assert os.path.isdir(args.input),\
         f'Input folder not found: {args.input}'
     sp = SimilarityParser()
@@ -165,5 +164,5 @@ def main():
                 f.write(cur_txt)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__':  # pragma: no cover
+    main(parse_arguments())
