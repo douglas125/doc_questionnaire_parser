@@ -88,3 +88,4 @@ class TestMatchFirstWordsExceptions:
                 last_char_match_list=')}>.'
             )
         assert 'Possible delimiters must be a list' in str(info.value)
+        assert False
