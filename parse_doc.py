@@ -3,16 +3,22 @@ import re
 import sys
 import argparse
 
+from tqdm import tqdm
+
 from similarity_parser import SimilarityParser
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Parses PDF and DOCX documents into JSON format '
+                    'renderable with HTML. In the case of PDF:\n'
+                    '<file>.pdf - questions; <file>_gab.pdf - answers'
+    )
     parser.add_argument(
         '-i',
         '--input',
         default='data',
-        help='Input folder containing DOCX files to parse'
+        help='Input folder containing DOCX and PDF files to parse'
     )
     parser.add_argument(
         '-o',
@@ -24,7 +30,8 @@ def parse_arguments():
 
 
 def _adjust_img_url(x):
-    return re.sub('----media/(.+?[^-])----', '<img src="images/\\1">', x)
+    ans = re.sub('----media/(.+?[^-])----', '<img src="images/\\1">', x)
+    return ans
 
 
 def replace_image_url(cur_dict):
@@ -79,8 +86,13 @@ def question2html(orig_question, prev_html=None, next_html=None):
     ans.append(stem)
     if question['type'] == 'choice':
         options = question.pop('choices')
+        correct_answer = question.get('correct_answer', -1)
         for idx, opt in enumerate(options):
-            ans.append(f'<br><br>Option {idx + 1}:<br>{opt["text"]}')
+            option_text = f'<br><br>Option {idx + 1}:<br>{opt["text"]}'
+            if correct_answer == idx:
+                option_text = '<p style="color:green; font-weight: bold">' +\
+                              f'{option_text}</p>'
+            ans.append(option_text)
 
     ans.append('<hr>Remaining info:<hr><br>')
     all_parsed_tags = question.pop('all_parsed_tags')
@@ -99,25 +111,44 @@ def _gen_html_name(z):
     return str(z).zfill(8) + '.html'
 
 
-def main():
-    args = parse_arguments()
+def main(args):
     assert os.path.isdir(args.input),\
         f'Input folder not found: {args.input}'
     sp = SimilarityParser()
-    docx_files = [x for x in os.listdir(args.input)
-                  if x.lower().endswith('.docx')]
+    doc_files = [x for x in os.listdir(args.input)
+                 if x.lower().endswith('.docx') or x.lower().endswith('.pdf')
+                 and not x.lower().endswith('_gab.pdf')]
     os.makedirs(args.output, exist_ok=True)
 
-    for docx in docx_files:
+    pbar = tqdm(doc_files)
+    for document in pbar:
+        # show user what document is being processed
+        pbar.set_description(f'File: {document}')
+
         cur_out_folder = os.path.join(
-            args.output, docx.split('.')[0]
+            args.output, document.split('.')[0]
         )
         cur_out_imgs = os.path.join(cur_out_folder, 'images')
         os.makedirs(cur_out_imgs, exist_ok=True)
-        cur_parse = sp.parse_docx(
-            os.path.join(args.input, docx),
-            image_folder=cur_out_imgs
-        )
+        if document.lower().endswith('.docx'):
+            cur_parse = sp.parse_docx(
+                os.path.join(args.input, document),
+                image_folder=cur_out_imgs
+            )
+        elif document.lower().endswith('.pdf'):
+            ans_file = None
+            ans_candidate = os.path.join(
+                args.input, document
+            ).replace('.pdf', '_gab.pdf')
+
+            if os.path.isfile(ans_candidate):
+                ans_file = ans_candidate
+
+            cur_parse = sp.parse_pdf(
+                os.path.join(args.input, document),
+                image_folder=cur_out_imgs,
+                answers=ans_file
+            )
 
         for idx, question in enumerate(cur_parse):
             html_name = _gen_html_name(idx + 1)
@@ -125,12 +156,13 @@ def main():
             next_html = _gen_html_name(idx + 2)\
                 if idx + 1 < len(cur_parse) else None
 
-            with open(os.path.join(cur_out_folder, html_name), 'w') as f:
+            with open(os.path.join(cur_out_folder, html_name),
+                      'w', encoding='utf-8') as f:
                 cur_txt = question2html(
                     question, prev_html=prev_html, next_html=next_html
                 )
                 f.write(cur_txt)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__':  # pragma: no cover
+    main(parse_arguments())

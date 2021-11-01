@@ -10,17 +10,28 @@ pip requirements using `pip-requirements.txt`
 
 - Import the parser of your choice
 - Extract questions from a file by providing its path
+- Optionally, provide a folder that will be used to save images
+- Optionally, provide an extra PDF with expected answers
 
 Example:
 
 ```
 from similarity_parser import SimilarityParser
 sp = SimilarityParser()
-questions = sp.parse_docx(path_to_docx_file)
+questions = sp.parse_docx(path_to_docx_file, image_folder=folder_to_put_images)
 ```
 
 `questions` will contain a list of dictionaries that represent each question
 detected in the DOCX file
+
+To parse a PDF file, use its name as argument and, optionally,
+provide a file containing the corresponding answers.
+
+```
+from similarity_parser import SimilarityParser
+sp = SimilarityParser()
+questions = sp.parse_pdf(path_to_pdf_file, image_folder=folder_to_put_images, answers=path_to_pdf_answers)
+```
 
 
 ## Visualization
@@ -32,10 +43,16 @@ detected in the DOCX file
 ```
 usage: parse_doc.py [-h] [-i INPUT] [-o OUTPUT]
 
+Parses PDF and DOCX documents into JSON format renderable with HTML.
+In the case of PDF:
+
+- <file>.pdf - questions;
+- <file>_gab.pdf - answers
+
 optional arguments:
   -h, --help            show this help message and exit
   -i INPUT, --input INPUT
-                        Input folder containing DOCX files to parse
+                        Input folder containing DOCX and PDF files to parse
   -o OUTPUT, --output OUTPUT
                         Output folder that will contain the parsed HTML files
 ```

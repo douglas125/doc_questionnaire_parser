@@ -1,5 +1,7 @@
 tqdm
-jellyfish
+lxml==4.6.3
+pillow==8.3.1
+jellyfish==0.8.8
 ipywidgets
 scikit-learn
-beautifulsoup4
+beautifulsoup4==4.9.3

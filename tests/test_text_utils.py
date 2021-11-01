@@ -31,6 +31,7 @@ class TestMatchFirstWords:
         ('answer: d', match_list, True, [':'], 0, 1),
         # not removing the last char means that edit distance is 1
         ('answer: d', match_list, False, [':'], 1, 1),
+        ('answer: d', match_list, False, None, 1, 1),
         ('correct answer: d', match_list, False, [':'], 1, 2),
         ('ansewr: d', match_list, True, [':'], 1, 1),
         # last char doesn't match any in the list
@@ -88,3 +89,9 @@ class TestMatchFirstWordsExceptions:
                 last_char_match_list=')}>.'
             )
         assert 'Possible delimiters must be a list' in str(info.value)
+
+
+class TestReadEmbeddings:
+    def test_read_dummy_embedding(self):
+        _ = text_utils.read_embeddings('tests/dummy_emb.zip',
+                                       print_errors=True)

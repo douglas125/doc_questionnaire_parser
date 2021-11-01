@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from docx2python import docx2python
 
 import text_utils
+import pdf_parsing.pdf_extractor as pdf_e
 from nlp_models.structured_incremental_parser import IncrementalParser
 
 
@@ -82,6 +83,98 @@ class SimilarityParser:
         else:
             self.config = DEFAULTCONFIG
         self.ans = self.config['ans_strings']
+        self.ans_pat = '[' + '\\'.join(
+            self.config['exercise_delimiter_tokens']
+        ) + ']'
+
+    def parse_pdf(self, file_name, image_folder=None, answers=None):
+        """ Attempts to parse a PDF file into questions
+
+        Arguments:
+
+        file_name: PDF file to process
+        image_folder: folder to save images
+        answers: PDF file containing the corresponding answers
+        """
+        lines = pdf_e.read_pdf_lines(file_name, image_folder)
+        questions = self._parse_questions(lines)
+        if answers is not None:
+            ans_lines = pdf_e.read_pdf_lines(answers)
+            ans_lines_no_html = self._extract_lines_without_html(ans_lines)
+            candidate_ans = self._parse_answers(ans_lines_no_html)
+            if len(candidate_ans) == len(questions):
+                logging.debug('Number of questions and answers match')
+                for q, ans in zip(questions, candidate_ans):
+                    if q['type'] == self.ans['multiple_choice']:
+                        ans_char = ans[-1].lower()
+                        ans_idx = LOWERCASE_CHARS.index(ans_char)
+                        q[self.ans['correct_answer']] = ans_idx
+                    else:
+                        q[self.ans['correct_answer']] = ans
+            else:
+                logging.debug('Number of questions and answers do not match. '
+                              'Ignoring answers')
+
+        return questions
+
+    def _parse_answers(self, ans_lines_no_html):
+        """ Parses answers in the format
+        <question_number>\n<correct_answer>
+
+        Splits the lines that come in like:
+        <question_number><delimiter><correct answer>
+        """
+        split_ans = []
+        for line in ans_lines_no_html:
+            line_split = re.split(self.ans_pat, line)
+            split_ans = split_ans + [x for x in line_split]
+
+        ans_dict = {}
+        cur_ans_list = None
+        for cur_line in split_ans:
+            line = cur_line.strip()
+            if line.isdigit():
+                cur_ans_list = ans_dict.get(int(line), [])
+                ans_dict[int(line)] = cur_ans_list
+            elif len(line) == 1:
+                cur_ans_list.append(line)
+
+        # at this point, we expect ans_dict to have
+        # key-value pairs of <question_number>: <answer>
+
+        # ENEM has an annoying corner case: 1 to 5 answers are
+        # put together in questions with the same number
+        expected_keys = list(range(min(ans_dict.keys()),
+                                   1 + max(ans_dict.keys())))
+        actual_keys = sorted(list(ans_dict.keys()))
+        if expected_keys == actual_keys:
+            logging.debug(f'Found answers to {len(actual_keys)} questions')
+            answer_lengths = [len(ans_dict[x]) for x in ans_dict]
+            if answer_lengths == [1] * len(ans_dict):
+                logging.debug('Each question has 1 answer. End of parsing')
+                return [ans_dict[x][0] for x in actual_keys]
+            else:
+                logging.debug('More than one answer found for some questions')
+
+                # check for corner case where a few initial questions
+                # have 2 answers. This is ENEM corner case
+                # unfold answers
+                if min(answer_lengths) == 1 and max(answer_lengths) == 2:
+                    logging.debug('Found ENEM corner case '
+                                  '- same question with 2 answers')
+                    first_ans = [ans_dict[x][0] for x in actual_keys]
+                    second_ans = [ans_dict[x][1] for x in actual_keys
+                                  if len(ans_dict[x]) > 1]
+
+                    logging.debug(f'First answers: {first_ans}\n'
+                                  f'Second answers: {second_ans}')
+
+                    # patch them together
+                    final_ans = first_ans[0:len(second_ans)] + second_ans +\
+                        first_ans[len(second_ans):]
+                    return final_ans
+        else:
+            logging.debug('Numbers in answer text did not come as expected')
 
     def parse_docx(self, file_name, image_folder=None):
         """ Attempts to parse a DOCX file into questions
@@ -178,27 +271,38 @@ class SimilarityParser:
                 valid_question_delimiter = words[1][-1] in self.config['exercise_delimiter_tokens']  # noqa
                 is_valid_number = words[1][:-1].isnumeric()
 
+                # special case: exercise 5, or exercise 6.
+                # are the only contents of a line
+                if len(words) == 2 and words[1].isnumeric():
+                    is_valid_number = True
+                    valid_question_delimiter = True
+
                 if question_distance <= self.config['exercise_dist_tol'] and\
                         valid_question_delimiter and is_valid_number:
                     question_idxs.append(idx)
-                    # get rid of the delimiter text
-                    # this is robust to multiple spaces
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_line, words[0], '_split_questions'
-                    )
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_val, words[1], '_split_questions'
-                    )
-                    text_lines[idx] = cur_val
+                    if len(words) == 2:
+                        # line contains only question id - remove
+                        text_lines[idx] = ''
+                        text_lines_no_html[idx] = ''
+                    else:
+                        # get rid of the delimiter text
+                        # this is robust to multiple spaces
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_line, words[0], '_split_questions'
+                        )
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_val, words[1], '_split_questions'
+                        )
+                        text_lines[idx] = cur_val
 
-                    # update the no_html version as well
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_line_no_html, words[0], '_split_questions'
-                    )
-                    cur_val = text_utils.remove_first_occurrence(
-                        cur_val, words[1], '_split_questions'
-                    )
-                    text_lines_no_html[idx] = cur_val
+                        # update the no_html version as well
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_line_no_html, words[0], '_split_questions'
+                        )
+                        cur_val = text_utils.remove_first_occurrence(
+                            cur_val, words[1], '_split_questions'
+                        )
+                        text_lines_no_html[idx] = cur_val
 
         return question_idxs
 
@@ -334,7 +438,8 @@ class SimilarityParser:
             for delimiter in self.config['multiple_choice_delimiters']:
                 # enforce letter sequence: a, b, c etc.
                 if line_text[1:1 + len(delimiter)] == delimiter and\
-                        line_text[0].lower() == LOWERCASE_CHARS[cur_letter_idx]:
+                        line_text[0].lower() ==\
+                        LOWERCASE_CHARS[cur_letter_idx]:
 
                     # logging.debug(f'{line_text}, {delimiter}')
                     choice_candidate_lines.append(idx)
@@ -347,6 +452,7 @@ class SimilarityParser:
                     question_lines[idx] = cur_val
                     cur_letter_idx += 1
 
+        # logging.debug(f'Choice chars: {choice_chars}')
         if len(choice_chars) >= 3 and\
                 len(LOWERCASE_CHARS) >= len(choice_chars):
             # good chance we're multiple choice here
