@@ -20,8 +20,8 @@ docx_files = [
      'tests/regression_data/Open_questions.zip'),
 ]
 pdf_files = [
-    ('data/BAIXA_PPL_1_DIA_CADERNO_1_AZUL.pdf',
-     'data/BAIXA_PPL_1_DIA_CADERNO_1_AZUL_gab.pdf',
+    ('data/ENEM_PPL_1_DIA_CADERNO_1_AZUL.pdf',
+     'data/ENEM_PPL_1_DIA_CADERNO_1_AZUL_gab.pdf',
      'tests/regression_data/enem2019.zip')
 ]
 
