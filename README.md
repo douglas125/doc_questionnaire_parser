@@ -33,6 +33,15 @@ sp = SimilarityParser()
 questions = sp.parse_pdf(path_to_pdf_file, image_folder=folder_to_put_images, answers=path_to_pdf_answers)
 ```
 
+### Provider specific parser
+
+Sometimes, a PDF may contain provider specific parseable tags. To handle those, make sure
+to add the provider name to the file name.
+
+Supported provider-specific parsing at the moment:
+
+- ENEM
+
 
 ## Visualization
 
