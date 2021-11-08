@@ -7,6 +7,7 @@ from docx2python import docx2python
 
 import text_utils
 import pdf_parsing.pdf_extractor as pdf_e
+from pdf_parsing.enem_specific import enem_lines_parser
 from nlp_models.structured_incremental_parser import IncrementalParser
 
 
@@ -97,7 +98,14 @@ class SimilarityParser:
         answers: PDF file containing the corresponding answers
         """
         lines = pdf_e.read_pdf_lines(file_name, image_folder)
-        questions = self._parse_questions(lines)
+
+        # could probably find a better way than hard coding here
+        # TO DO later
+        specific_parser = None
+        if 'enem' in file_name.lower():
+            specific_parser = enem_lines_parser
+
+        questions = self._parse_questions(lines, specific_parser)
         if answers is not None:
             ans_lines = pdf_e.read_pdf_lines(answers)
             ans_lines_no_html = self._extract_lines_without_html(ans_lines)
@@ -112,8 +120,10 @@ class SimilarityParser:
                     else:
                         q[self.ans['correct_answer']] = ans
             else:
-                logging.debug('Number of questions and answers do not match. '
-                              'Ignoring answers')
+                logging.warning(
+                    'Number of questions and answers do not match. '
+                    f'Ignoring answers for {file_name}'
+                )
 
         return questions
 
@@ -205,7 +215,17 @@ class SimilarityParser:
             text_lines_no_html.append(soup.text)
         return text_lines_no_html
 
-    def _parse_questions(self, lines):
+    def _parse_questions(self, lines, specific_lines_parser=None):
+        """ Parses questions into response dictionaries
+
+        Arguments:
+
+        lines - parsed question lines
+        specific_lines_parser - function that receives
+            lines[] and text_lines_no_html[]
+            and returns them modified in some provider-specific way
+            (to handle corner cases for ENEM or Unicamp for example)
+        """
         text_lines_no_html = self._extract_lines_without_html(lines)
         question_idxs = self._split_questions(lines, text_lines_no_html)
 
@@ -221,10 +241,19 @@ class SimilarityParser:
             question_idxs.append(len(lines))
 
             for (n1, n2) in zip(question_idxs[0:-1], question_idxs[1:]):
-                q = self._parse_question(
-                    lines[n1:n2], text_lines_no_html[n1:n2]
-                )
-                questions.append(q)
+                cur_lines = lines[n1:n2]
+                cur_text_lines_no_html = text_lines_no_html[n1:n2]
+                if specific_lines_parser is not None:
+                    cur_lines, cur_text_lines_no_html = specific_lines_parser(
+                        cur_lines, cur_text_lines_no_html
+                    )
+
+                # maybe question ends up having no good lines
+                if len(lines) > 0:
+                    q = self._parse_question(
+                        cur_lines, cur_text_lines_no_html
+                    )
+                    questions.append(q)
 
         return questions
 

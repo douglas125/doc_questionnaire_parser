@@ -116,7 +116,8 @@ def main(args):
         f'Input folder not found: {args.input}'
     sp = SimilarityParser()
     doc_files = [x for x in os.listdir(args.input)
-                 if x.lower().endswith('.docx') or x.lower().endswith('.pdf')
+                 if x.lower().endswith('.docx')
+                 or x.lower().endswith('.pdf')
                  and not x.lower().endswith('_gab.pdf')]
     os.makedirs(args.output, exist_ok=True)
 
