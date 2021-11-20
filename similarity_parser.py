@@ -110,7 +110,10 @@ class SimilarityParser:
             ans_lines = pdf_e.read_pdf_lines(answers)
             ans_lines_no_html = self._extract_lines_without_html(ans_lines)
             candidate_ans = self._parse_answers(ans_lines_no_html)
-            if len(candidate_ans) == len(questions):
+
+            if candidate_ans is not None\
+                    and len(candidate_ans) == len(questions):
+
                 logging.debug('Number of questions and answers match')
                 for q, ans in zip(questions, candidate_ans):
                     if q['type'] == self.ans['multiple_choice']:
